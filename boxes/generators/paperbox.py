@@ -43,6 +43,15 @@ class PaperBox(Boxes):
         self.buildArgParser("x", "y", "h")
 
         self.argparser.add_argument(
+            "--design",
+            action="store",
+            type=str,
+            default="automatic",
+            choices=("automatic", "widebox", "tuckbox"),
+            help="different design for paper consumption optimization",
+        )
+
+        self.argparser.add_argument(
             "--lid_heigth",
             type=float,
             default=15,
@@ -64,7 +73,7 @@ class PaperBox(Boxes):
             "--margin",
             type=float,
             default=0.5,
-            help="Space between the two folded sides to glue",
+            help="Margin for the glued sides",
         )
         self.argparser.add_argument(
             "--mark_length",
@@ -87,9 +96,61 @@ class PaperBox(Boxes):
         )
 
     def render(self):
-        width = self.x
-        length = self.y
-        height = self.h
+        if self.design == "automatic":
+            self.design = "tuckbox" if self.h > self.y else "widebox"
+
+        path = (
+            self.tuckbox(self.x, self.y, self.h)
+            if self.design == "tuckbox"
+            else self.widebox(self.x, self.y, self.h)
+        )
+
+        self.polyline(*path)
+
+    def tuckbox(self, width, length, height):
+        half_side = (
+            self.mark(self.mark_length)
+            + [
+                0,
+                90,
+            ]
+            + self.dented_tab_description(length)
+            + [
+                0,
+                -90,
+                length,
+                0,
+            ]
+            + self.lid_cut(length / 2)
+            + self.lid(width)
+            + [0]
+            + self.lid_cut(length / 2)
+            + [
+                length,
+                -90,
+            ]
+            + self.dented_tab_description(length, reverse=True)
+        )
+        return (
+            [height, 0]
+            + half_side
+            + self.side_with_finger_hole(width, self.finger_hole_diameter)
+            + self.mark(self.mark_length)
+            + [
+                0,
+                90,
+            ]
+            + self.tab_description(length - self.margin, height)
+            + [
+                0,
+                90,
+            ]
+            + self.mark(self.mark_length)
+            + [width]
+            + list(reversed(half_side))
+        )
+
+    def widebox(self, width, length, height):
         half_side = (
             self.mark(self.mark_length)
             + [
@@ -124,18 +185,22 @@ class PaperBox(Boxes):
                 0,
             ]
             + self.mark(self.mark_length)
-            + [
-                self.lid_heigth - self.lid_radius,
-                (90, self.lid_radius),
-            ]
         )
-        path = (
+        return (
             self.side_with_finger_hole(width, self.finger_hole_diameter)
             + half_side
-            + [width - 2 * self.lid_radius]
+            + self.lid(width)
             + list(reversed(half_side))
         )
-        self.polyline(*path)
+
+    def lid(self, width):
+        return [
+            self.lid_heigth - self.lid_radius,
+            (90, self.lid_radius),
+            width - 2 * self.lid_radius,
+            (90, self.lid_radius),
+            self.lid_heigth - self.lid_radius,
+        ]
 
     def mark(self, length):
         if length == 0:
@@ -147,6 +212,18 @@ class PaperBox(Boxes):
             180,
             length,
             -90,
+        ]
+
+    def lid_cut(self, length):
+        if length == 0:
+            return []
+        return [
+            0,
+            90,
+            length,
+            -180,
+            length,
+            90,
         ]
 
     def side_with_finger_hole(self, width, finger_hole_diameter):
@@ -177,3 +254,25 @@ class PaperBox(Boxes):
             side,
             deg - 90,
         ]
+
+    def dented_tab_description(self, width, reverse=False):
+        deg = math.degrees(self.tab_angle_rad)
+        side = width / math.cos(self.tab_angle_rad)
+        end_width = width - 2 * width * math.tan(self.tab_angle_rad)
+        path = [
+            2 * self.burn,
+            -90,
+            width / 2,
+            90,
+            0,
+            (-90, width / 4),
+            width / 4,
+            90,
+            width - (width / 4) - 4 * self.burn,
+            90,
+            width,
+            -90,
+            2 * self.burn,
+        ]
+
+        return (list(reversed(path)) if reverse else path) + [0]
