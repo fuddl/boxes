@@ -121,10 +121,10 @@ class PaperBox(Boxes):
                 length,
                 0,
             ]
-            + self.lid_cut(length / 2)
+            + self.lid_cut(min(length / 2, 10))
             + self.lid(width)
             + [0]
-            + self.lid_cut(length / 2)
+            + self.lid_cut(min(length / 2, 10))
             + [
                 length,
                 -90,
@@ -256,21 +256,14 @@ class PaperBox(Boxes):
         ]
 
     def dented_tab_description(self, width, reverse=False):
-        deg = math.degrees(self.tab_angle_rad)
-        side = width / math.cos(self.tab_angle_rad)
-        end_width = width - 2 * width * math.tan(self.tab_angle_rad)
         path = [
             2 * self.burn,
             -90,
-            width / 2,
+            self.lid_heigth - self.lid_radius,
+            (90, self.lid_radius),
+            width - self.lid_heigth - 4 * self.burn,
             90,
-            0,
-            (-90, width / 4),
-            width / 4,
-            90,
-            width - (width / 4) - 4 * self.burn,
-            90,
-            width,
+            self.lid_heigth,
             -90,
             2 * self.burn,
         ]
