@@ -16,7 +16,7 @@
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import math
-from boxes import Boxes
+from boxes import Boxes, Color
 
 
 class PaperBox(Boxes):
@@ -96,19 +96,22 @@ A paper creaser (or bone folder) is also useful.
         if self.design == "automatic":
             self.design = "tuckbox" if self.h > self.y else "widebox"
 
-        path = (
+        if self.design == "tuckbox":
             self.tuckbox(self.x, self.y, self.h)
-            if self.design == "tuckbox"
-            else self.widebox(self.x, self.y, self.h)
-        )
+        else:
+            self.widebox(self.x, self.y, self.h)
 
-        self.polyline(*path)
 
     def tuckbox(self, width, length, height):
         lid_cut_length = min(10, length / 2, width / 5)
-        half_side = (
-            self.mark(self.mark_length)
-            + [
+
+        self.polyline(*(
+            [height, 0]
+        ))
+        self.mark()
+        self.crease(length)
+        self.polyline(*(
+            [
                 0,
                 90,
             ]
@@ -119,39 +122,54 @@ A paper creaser (or bone folder) is also useful.
                 length,
                 0,
             ]
-            + self.lid_cut(lid_cut_length)
-            + self.lid(width - 2 * self.thickness)
-            + [0]
-            + self.lid_cut(lid_cut_length, reverse=True)
-            + [
+        ))
+        self.lid_cut(lid_cut_length)
+        self.lid(width - 2 * self.thickness)
+        self.polyline(*(
+            [0, 0]
+        ))
+        self.lid_cut(lid_cut_length, reverse=True)
+        self.polyline(*(
+            [
                 length,
                 -90,
             ]
             + self.ear_description(length, lid_cut_length, reverse=True)
-            + self.mark(self.mark_length)
-        )
-        return (
-            [height, 0]
-            + half_side
-            + self.side_with_finger_hole(width, self.finger_hole_diameter)
-            + self.mark(self.mark_length)
-            + [
+        ))
+        self.polyline(*([
+            0, 90
+        ]))
+        self.crease(length)
+        self.polyline(*([
+            0, -90
+        ]))
+        self.crease(height)
+        self.mark()
+        self.polyline(*(
+            self.side_with_finger_hole(width, self.finger_hole_diameter)
+        ))
+        self.crease(width)
+        self.mark()
+        self.polyline(*([
                 0,
                 90,
             ]
             + self.tab_description(length - self.margin - self.thickness, height)
-            + [
+        ))
+        self.polyline(*([
                 0,
                 90,
             ]
-            + self.mark(self.mark_length)
-            + [width]
-            + list(reversed(half_side))
-        )
+        ))
+        self.crease(width)
+        self.mark()
+        self.polyline(*(
+            [width]
+        ))
 
     def widebox(self, width, length, height):
         half_side = (
-            self.mark(self.mark_length)
+            self.mark()
             + [
                 0,
                 90,
@@ -163,7 +181,7 @@ A paper creaser (or bone folder) is also useful.
                 height,
                 0,
             ]
-            + self.mark(self.mark_length)
+            + self.mark()
             + [
                 0,
                 90,
@@ -173,7 +191,7 @@ A paper creaser (or bone folder) is also useful.
                 0,
                 90,
             ]
-            + self.mark(self.mark_length)
+            + self.mark()
             + [
                 height,
                 -90,
@@ -183,7 +201,7 @@ A paper creaser (or bone folder) is also useful.
                 length,
                 0,
             ]
-            + self.mark(self.mark_length)
+            + self.mark()
         )
         return (
             self.side_with_finger_hole(width, self.finger_hole_diameter)
@@ -193,36 +211,47 @@ A paper creaser (or bone folder) is also useful.
         )
 
     def lid(self, width):
-        return [
+        self.polyline(*(
             self.lid_heigth - self.lid_radius,
             (90, self.lid_radius),
             width - 2 * self.lid_radius,
             (90, self.lid_radius),
             self.lid_heigth - self.lid_radius,
-        ]
+        ))
+    def crease(self, length):
+        with self.saved_context():
+            self.set_source_color(Color.ETCHING)
+            self.moveTo(0,length-1, -90)
+            self.edge(length-2)
+            self.ctx.stroke()
 
-    def mark(self, length):
-        if length == 0:
-            return []
-        return [
+    def mark(self):
+
+        self.set_source_color(Color.BLACK)
+        self.polyline(*([
             0,
             -90,
-            length,
+            self.mark_length,
             180,
-            length,
+            self.mark_length,
             -90,
-        ]
+        ]))
+        self.ctx.stroke()
 
     def lid_cut(self, length, reverse=False):
-        path = [
+        self.polyline(*([
+            0,
             90,
-            length + self.thickness,
+            length + (0 if reverse else self.thickness),
+        ]))
+        if not reverse:
+            self.crease(self.thickness - (length * 2))
+        self.polyline(*([
+            0,
             -180,
-            length,
+            length + (self.thickness if reverse else 0),
             90,
-        ]
-
-        return [0] + (list(reversed(path)) if reverse else path)
+        ]))
 
     def side_with_finger_hole(self, width, finger_hole_diameter):
         half_width = (width - finger_hole_diameter) / 2
